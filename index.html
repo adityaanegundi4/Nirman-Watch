@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SatyaNirman AI | NavIC & Computer Vision Civic Accountability</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map { height: 380px; width: 100%; border-radius: 0.75rem; z-index: 10; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500 flex items-center justify-center text-emerald-400 font-bold text-xl">
+                    🛰️
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white">SatyaNirman AI <span class="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full ml-1">NavIC + CV Audit</span></h1>
+                    <p class="text-xs text-slate-400">Real-Time Public Infrastructure & Fund Utilization Tracker</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <span class="flex items-center gap-2 text-xs bg-slate-800 px-3 py-1.5 rounded-full text-emerald-400 border border-slate-700">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    NavIC Live
+                </span>
+                <button type="button" onclick="openNewProjectModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+                    + Officer: Add Project
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                <p class="text-xs text-slate-400 uppercase">Total Active Projects</p>
+                <p class="text-2xl font-bold text-white mt-1" id="stat-total">0</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                <p class="text-xs text-slate-400 uppercase">Total Sanctioned Funds</p>
+                <p class="text-2xl font-bold text-blue-400 mt-1" id="stat-sanctioned">₹0</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                <p class="text-xs text-slate-400 uppercase">CV AI-Verified Value Built</p>
+                <p class="text-2xl font-bold text-emerald-400 mt-1" id="stat-verified-money">₹0</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                <p class="text-xs text-slate-400 uppercase">Flagged Fraud / Mismatches</p>
+                <p class="text-2xl font-bold text-rose-400 mt-1" id="stat-flagged">0</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Live Area Construction Map (NavIC / GPS Verified)</h2>
+                    <p class="text-xs text-slate-400">Citizens & Officers can tap any pin to inspect real-time progress, funds used, or visit the site.</p>
+                </div>
+                <input type="text" id="searchInput" oninput="renderProjects()" placeholder="Search area, road, or contractor..." class="bg-slate-950 border border-slate-700 text-sm rounded-lg px-3.5 py-2 w-full sm:w-72 focus:outline-none focus:border-emerald-500" />
+            </div>
+            <div id="map"></div>
+        </div>
+
+        <div>
+            <h2 class="text-lg font-semibold text-white mb-4">Ongoing Government Projects & AI Fund Audits</h2>
+            <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+    </main>
+
+    <!-- MODAL 1: Contractor NavIC + Computer Vision Site Upload -->
+    <div id="verifyModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white">NavIC + CV AI Site Verification</h3>
+                <button type="button" onclick="closeVerifyModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+            </div>
+            <p class="text-xs text-slate-400" id="verifyProjectTitle">Project Name</p>
+
+            <form id="verifyForm" class="space-y-4">
+                <input type="hidden" id="verifyProjectId" />
+                <input type="hidden" id="siteLat" />
+                <input type="hidden" id="siteLng" />
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">1. Satellite Location Mode</label>
+                    <select id="gpsMode" onchange="updateSimulatedCoords()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
+                        <option value="authentic">✅ Authentic NavIC Lock (At Site - 0m away)</option>
+                        <option value="device">📍 Use My Real Tablet GPS / NavIC</option>
+                        <option value="fake">🚨 Simulate Fake Contractor (5 km away)</option>
+                    </select>
+                    <p class="text-[11px] text-slate-400 mt-1" id="coordPreview">Coordinates: --</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">2. Upload Live Construction Photo (Road / Building / Concrete)</label>
+                    <input type="file" id="siteImage" accept="image/*" required class="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white hover:file:bg-emerald-500" />
+                    <p class="text-[11px] text-slate-400 mt-1">CV rejects blank/non-construction images & duplicate hashes.</p>
+                </div>
+
+                <div id="verifyResultBox" class="hidden p-3 rounded-lg text-xs"></div>
+
+                <button type="submit" id="verifySubmitBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-lg transition">
+                    Run NavIC Geofence & CV Budget Audit
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Government Officer Add New Project -->
+    <div id="newProjectModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white">Register Government Project</h3>
+                <button type="button" onclick="closeNewProjectModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+            </div>
+
+            <form id="newProjectForm" class="space-y-3">
+                <input type="text" id="pTitle" placeholder="Project Title (e.g., Ward 12 Asphalt Road)" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
+                <input type="text" id="pArea" placeholder="Locality / Area (e.g., Koramangala, Bengaluru)" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
+                <input type="text" id="pContractor" placeholder="Assigned Contractor Company" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" step="any" id="pLat" value="12.9352" placeholder="NavIC Latitude" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
+                    <input type="number" step="any" id="pLng" value="77.6245" placeholder="NavIC Longitude" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" min="1" id="pSanctioned" placeholder="Sanctioned Budget (₹)" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
+                    <input type="number" min="0" id="pReleased" placeholder="Funds Released (₹)" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
+                </div>
+                <button type="submit" id="newProjectSubmitBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg transition">
+                    Publish to Public Live Map
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Citizen Whistleblower Report -->
+    <div id="citizenModal" class="fixed inset-0 bg-black/75 hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white">📢 Citizen On-Ground Report</h3>
+                <button type="button" onclick="closeCitizenModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+            </div>
+            <p class="text-xs text-slate-400" id="citizenProjectTitle">Project</p>
+
+            <form id="citizenForm" class="space-y-3">
+                <input type="hidden" id="citizenProjectId" />
+                <input type="text" id="cName" placeholder="Your Name (or Anonymous Citizen)" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
+                <select id="cIssue" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="Work Stopped / Ghost Site">Work Stopped / No Workers on Site</option>
+                    <option value="Poor Material Quality">Poor / Sub-standard Material Quality</option>
+                    <option value="Fake Progress Claimed">Fake Progress Claimed on Portal</option>
+                </select>
+                <textarea id="cDesc" rows="3" placeholder="Describe what you observed at the construction site..." required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"></textarea>
+                <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 rounded-lg transition">
+                    Submit Public Alert
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: Auto-Generated Official RTI / Vigilance Audit Notice -->
+    <div id="auditNoticeModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white">📄 Official AI Vigilance & RTI Audit Notice</h3>
+                <button type="button" onclick="closeAuditNoticeModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+            </div>
+            <pre id="auditNoticeText" class="bg-slate-950 border border-slate-800 p-4 rounded-xl text-xs text-slate-200 whitespace-pre-wrap font-mono leading-relaxed max-h-80 overflow-y-auto"></pre>
+            <button type="button" onclick="copyAuditNotice()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg transition">
+                📋 Copy Official Audit Report
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let allProjects = [];
+        let map, markersLayer;
+        let realDeviceCoords = null;
+
+        function escapeHTML(str) {
+            return String(str || "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function initMap() {
+            map = L.map('map').setView([12.955, 77.64], 12);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            }).addTo(map);
+            markersLayer = L.layerGroup().addTo(map);
+        }
+
+        function formatINR(num) {
+            return "₹" + Number(num || 0).toLocaleString("en-IN");
+        }
+
+        async function fetchProjects() {
+            try {
+                const res = await fetch("/api/projects");
+                if (!res.ok) return;
+                allProjects = await res.json();
+                updateStats();
+                renderProjects();
+            } catch (err) {
+                console.error("Waiting for backend...", err);
+            }
+        }
+
+        function updateStats() {
+            const total = allProjects.length;
+            const sanctioned = allProjects.reduce((sum, p) => sum + Number(p.sanctioned_budget), 0);
+            const verifiedMoney = allProjects.reduce((sum, p) => sum + Number(p.ai_estimated_spent), 0);
+            const flagged = allProjects.filter(p => String(p.status).includes("FLAGGED")).length;
+
+            document.getElementById("stat-total").innerText = total;
+            document.getElementById("stat-sanctioned").innerText = formatINR(sanctioned);
+            document.getElementById("stat-verified-money").innerText = formatINR(verifiedMoney);
+            document.getElementById("stat-flagged").innerText = flagged;
+        }
+
+        function renderProjects() {
+            const query = document.getElementById("searchInput").value.toLowerCase();
+            const filtered = allProjects.filter(p =>
+                p.title.toLowerCase().includes(query) ||
+                p.area.toLowerCase().includes(query) ||
+                p.contractor.toLowerCase().includes(query)
+            );
+
+            markersLayer.clearLayers();
+            const grid = document.getElementById("projects-grid");
+            grid.innerHTML = "";
+
+            filtered.forEach(p => {
+                const isFlagged = String(p.status).includes("FLAGGED");
+                const pinColor = isFlagged ? "#f43f5e" : "#10b981";
+
+                const marker = L.circleMarker([p.lat, p.lng], {
+                    radius: 10,
+                    fillColor: pinColor,
+                    color: "#fff",
+                    weight: 2,
+                    fillOpacity: 0.9
+                }).addTo(markersLayer);
+
+                marker.bindPopup(`
+                    <div style="color:#0f172a; font-family:sans-serif; min-width:200px;">
+                        <strong>${escapeHTML(p.title)}</strong><br/>
+                        <span style="font-size:12px;">📍 ${escapeHTML(p.area)}</span><br/>
+                        <span style="font-size:12px;">💰 Sanctioned: ${formatINR(p.sanctioned_budget)}</span><br/>
+                        <span style="font-size:12px;">🤖 AI Work Value: ${formatINR(p.ai_estimated_spent)} (${p.cv_progress_percent}%)</span><br/>
+                        <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener" style="color:#2563eb; font-size:12px; font-weight:bold;">Open in Google Maps →</a>
+                    </div>
+                `);
+
+                const releasedPct = p.sanctioned_budget > 0
+                    ? Math.min(100, Math.round((p.funds_released / p.sanctioned_budget) * 100))
+                    : 0;
+                const badgeClass = isFlagged
+                    ? "bg-rose-500/15 text-rose-400 border-rose-500/40"
+                    : "bg-emerald-500/15 text-emerald-400 border-emerald-500/40";
+
+                const card = `
+                <div class="bg-slate-900 border ${isFlagged ? 'border-rose-500/40' : 'border-slate-800'} rounded-xl p-5 flex flex-col justify-between space-y-4">
+                    <div class="space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${badgeClass}">
+                                ${escapeHTML(p.status)}
+                            </span>
+                            <span class="text-[11px] text-slate-400">${escapeHTML(p.last_verified)}</span>
+                        </div>
+                        <h3 class="text-base font-bold text-white leading-snug">${escapeHTML(p.title)}</h3>
+                        <p class="text-xs text-slate-400">📍 ${escapeHTML(p.area)} • 🏢 <span class="text-slate-300">${escapeHTML(p.contractor)}</span></p>
+                        <p class="text-[11px] text-slate-400">${escapeHTML(p.exif_status)} • 📢 Citizen Alerts: <strong class="text-amber-400">${p.citizen_reports_count || 0}</strong></p>
+                    </div>
+
+                    <div class="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-3 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Sanctioned Budget:</span>
+                            <span class="font-bold text-white">${formatINR(p.sanctioned_budget)}</span>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-slate-400">Money Released to Contractor:</span>
+                                <span class="font-semibold text-amber-400">${formatINR(p.funds_released)} (${releasedPct}%)</span>
+                            </div>
+                            <div class="w-full bg-slate-800 h-1.5 rounded-full">
+                                <div class="bg-amber-400 h-1.5 rounded-full" style="width: ${releasedPct}%"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-slate-400">🤖 CV AI-Detected Work Value:</span>
+                                <span class="font-semibold text-emerald-400">${formatINR(p.ai_estimated_spent)} (${p.cv_progress_percent}%)</span>
+                            </div>
+                            <div class="w-full bg-slate-800 h-1.5 rounded-full">
+                                <div class="bg-emerald-400 h-1.5 rounded-full" style="width: ${p.cv_progress_percent}%"></div>
+                            </div>
+                        </div>
+
+                        <p class="text-[11px] ${isFlagged ? 'text-rose-300' : 'text-slate-400'} pt-1 border-t border-slate-800">
+                            ${escapeHTML(p.flag_reason)}
+                        </p>
+                    </div>
+
+                    ${p.latest_image ? `<img src="${escapeHTML(p.latest_image)}" alt="Site Proof" class="w-full h-32 object-cover rounded-lg border border-slate-800" />` : ''}
+
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener" class="text-center bg-slate-800 hover:bg-slate-700 text-xs font-medium py-2 rounded-lg transition">
+                            🗺️ Visit Site
+                        </a>
+                        <button type="button" onclick="openVerifyModalById(${p.id})" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-medium py-2 rounded-lg transition">
+                            📸 NavIC + AI Audit
+                        </button>
+                        <button type="button" onclick="openCitizenModalById(${p.id})" class="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-xs font-medium py-2 rounded-lg transition">
+                            📢 Citizen Report
+                        </button>
+                        <button type="button" onclick="openAuditNoticeById(${p.id})" class="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-xs font-medium py-2 rounded-lg transition">
+                            📄 RTI Audit Notice
+                        </button>
+                    </div>
+                </div>`;
+                grid.innerHTML += card;
+            });
+        }
+
+        // --- MODAL 1: NAVIC + CV AUDIT ---
+        function openVerifyModalById(projectId) {
+            const project = allProjects.find(item => item.id === projectId);
+            if (!project) return;
+            document.getElementById("verifyProjectId").value = project.id;
+            document.getElementById("verifyProjectTitle").innerText = `${project.title} (${project.area})`;
+            document.getElementById("siteLat").value = project.lat;
+            document.getElementById("siteLng").value = project.lng;
+            document.getElementById("verifyResultBox").classList.add("hidden");
+            document.getElementById("siteImage").value = "";
+            realDeviceCoords = null;
+            document.getElementById("gpsMode").value = "authentic";
+            updateSimulatedCoords();
+            document.getElementById("verifyModal").classList.remove("hidden");
+            document.getElementById("verifyModal").classList.add("flex");
+        }
+        function closeVerifyModal() {
+            document.getElementById("verifyModal").classList.add("hidden");
+            document.getElementById("verifyModal").classList.remove("flex");
+        }
+        function updateSimulatedCoords() {
+            const mode = document.getElementById("gpsMode").value;
+            const lat = parseFloat(document.getElementById("siteLat").value);
+            const lng = parseFloat(document.getElementById("siteLng").value);
+            const preview = document.getElementById("coordPreview");
+
+            if (mode === "authentic") {
+                preview.innerText = `NavIC Locked: ${lat.toFixed(5)}, ${lng.toFixed(5)} (Inside 100m geofence)`;
+            } else if (mode === "fake") {
+                preview.innerText = `Spoofed Location: ${(lat + 0.045).toFixed(5)}, ${(lng + 0.045).toFixed(5)} (~6.9km away)`;
+            } else if (mode === "device") {
+                preview.innerText = "Requesting real tablet GPS/NavIC location...";
+                if ("geolocation" in navigator) {
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                            realDeviceCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                            preview.innerText = `Real Tablet Coordinates: ${realDeviceCoords.lat.toFixed(5)}, ${realDeviceCoords.lng.toFixed(5)}`;
+                        },
+                        () => {
+                            preview.innerText = "Location permission blocked on tablet. Switch to Authentic or Fake mode.";
+                        }
+                    );
+                }
+            }
+        }
+
+        document.getElementById("verifyForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById("verifySubmitBtn");
+            const id = document.getElementById("verifyProjectId").value;
+            const mode = document.getElementById("gpsMode").value;
+            let lat = parseFloat(document.getElementById("siteLat").value);
+            let lng = parseFloat(document.getElementById("siteLng").value);
+
+            if (mode === "fake") { lat += 0.045; lng += 0.045; }
+            else if (mode === "device" && realDeviceCoords) { lat = realDeviceCoords.lat; lng = realDeviceCoords.lng; }
+
+            const fileInput = document.getElementById("siteImage");
+            if (!fileInput.files || fileInput.files.length === 0) return;
+
+            btn.disabled = true;
+            btn.innerText = "Running NavIC & CV Pixel Audit...";
+
+            try {
+                const formData = new FormData();
+                formData.append("device_lat", lat);
+                formData.append("device_lng", lng);
+                formData.append("image", fileInput.files[0]);
+
+                const res = await fetch(`/api/projects/${id}/verify`, { method: "POST", body: formData });
+                const data = await res.json();
+
+                const box = document.getElementById("verifyResultBox");
+                box.classList.remove("hidden", "bg-rose-500/20", "text-rose-300", "bg-emerald-500/20", "text-emerald-300");
+                box.classList.add(data.verified ? "bg-emerald-500/20" : "bg-rose-500/20", data.verified ? "text-emerald-300" : "text-rose-300");
+                box.innerText = data.message || "Audit complete.";
+                await fetchProjects();
+            } catch (err) {
+                alert("Error connecting to server.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Run NavIC Geofence & CV Budget Audit";
+            }
+        });
+
+        // --- MODAL 2: ADD PROJECT ---
+        function openNewProjectModal() {
+            document.getElementById("newProjectModal").classList.remove("hidden");
+            document.getElementById("newProjectModal").classList.add("flex");
+        }
+        function closeNewProjectModal() {
+            document.getElementById("newProjectModal").classList.add("hidden");
+            document.getElementById("newProjectModal").classList.remove("flex");
+        }
+        document.getElementById("newProjectForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById("newProjectSubmitBtn");
+            btn.disabled = true;
+            try {
+                const formData = new FormData();
+                formData.append("title", document.getElementById("pTitle").value);
+                formData.append("area", document.getElementById("pArea").value);
+                formData.append("contractor", document.getElementById("pContractor").value);
+                formData.append("lat", document.getElementById("pLat").value);
+                formData.append("lng", document.getElementById("pLng").value);
+                formData.append("sanctioned_budget", document.getElementById("pSanctioned").value);
+                formData.append("funds_released", document.getElementById("pReleased").value);
+
+                const res = await fetch("/api/projects", { method: "POST", body: formData });
+                if (!res.ok) {
+                    const errData = await res.json();
+                    alert(errData.detail || "Failed to create project.");
+                    return;
+                }
+                document.getElementById("newProjectForm").reset();
+                closeNewProjectModal();
+                await fetchProjects();
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // --- MODAL 3: CITIZEN REPORT ---
+        function openCitizenModalById(projectId) {
+            const p = allProjects.find(item => item.id === projectId);
+            if (!p) return;
+            document.getElementById("citizenProjectId").value = p.id;
+            document.getElementById("citizenProjectTitle").innerText = `${p.title} (${p.area})`;
+            document.getElementById("citizenModal").classList.remove("hidden");
+            document.getElementById("citizenModal").classList.add("flex");
+        }
+        function closeCitizenModal() {
+            document.getElementById("citizenModal").classList.add("hidden");
+            document.getElementById("citizenModal").classList.remove("flex");
+        }
+        document.getElementById("citizenForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const id = document.getElementById("citizenProjectId").value;
+            const formData = new FormData();
+            formData.append("citizen_name", document.getElementById("cName").value);
+            formData.append("issue_type", document.getElementById("cIssue").value);
+            formData.append("description", document.getElementById("cDesc").value);
+
+            const res = await fetch(`/api/projects/${id}/citizen-report`, { method: "POST", body: formData });
+            const data = await res.json();
+            alert(data.message);
+            document.getElementById("citizenForm").reset();
+            closeCitizenModal();
+            await fetchProjects();
+        });
+
+        // --- MODAL 4: AUTO RTI / VIGILANCE AUDIT NOTICE ---
+        function openAuditNoticeById(projectId) {
+            const p = allProjects.find(item => item.id === projectId);
+            if (!p) return;
+            const gap = Math.max(0, p.funds_released - p.ai_estimated_spent);
+            const report = `====================================================
+SATYANIRMAN AI - PUBLIC INFRASTRUCTURE AUDIT NOTICE
+====================================================
+Project Title     : ${p.title}
+Location (NavIC)  : ${p.area} (${p.lat}, ${p.lng})
+Contractor Entity : ${p.contractor}
+Audit Status      : ${p.status}
+Last Verified     : ${p.last_verified}
+
+--- FINANCIAL & COMPUTER VISION BREAKDOWN ---
+Sanctioned Budget          : ${formatINR(p.sanctioned_budget)}
+Funds Released to Date     : ${formatINR(p.funds_released)}
+CV AI Physical Completion  : ${p.cv_progress_percent}%
+AI-Estimated Work Value    : ${formatINR(p.ai_estimated_spent)}
+Unaccounted Fund Gap       : ${formatINR(gap)}
+
+--- FORENSIC & CITIZEN VERIFICATION ---
+Camera EXIF Metadata       : ${p.exif_status}
+Citizen Grievance Alerts   : ${p.citizen_reports_count || 0} reports
+AI Finding Summary         : ${p.flag_reason}
+====================================================`;
+            document.getElementById("auditNoticeText").innerText = report;
+            document.getElementById("auditNoticeModal").classList.remove("hidden");
+            document.getElementById("auditNoticeModal").classList.add("flex");
+        }
+        function closeAuditNoticeModal() {
+            document.getElementById("auditNoticeModal").classList.add("hidden");
+            document.getElementById("auditNoticeModal").classList.remove("flex");
+        }
+        function copyAuditNotice() {
+            const text = document.getElementById("auditNoticeText").innerText;
+            navigator.clipboard.writeText(text);
+            alert("Official Audit Notice copied to clipboard!");
+        }
+
+        initMap();
+        fetchProjects();
+        setInterval(fetchProjects, 5000);
+    </script>
+</body>
+</html>
